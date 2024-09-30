@@ -4,6 +4,8 @@
 #include "matrix.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <ctype.h>
 #include <errno.h> /* for ENOSYS */
 
 void print_matrix(matrix_t *m) {
@@ -17,6 +19,9 @@ void print_matrix(matrix_t *m) {
 }
 
 int matrix_allocate(matrix_t *m, int rows, int columns) {
+    if (rows == 0 && columns == 0) {
+        return 0;
+    }
     m->rows = rows;
     m->columns = columns;
 
@@ -170,17 +175,96 @@ int matrix_transposition(matrix_t *m, matrix_t *result) {
     return 0;
 }
 
+// multiply two matrices
 int matrix_product(matrix_t *m1, matrix_t *m2, matrix_t *result) {
-    /* implement the function here ... */
-    return -ENOSYS;
+    // requirement for multiplication of two matrices
+    if (m1->columns != m2->rows) {
+        return -1;
+    }
+
+    matrix_allocate(result, m1->rows, m2->columns);
+    for (int i = 0; i < m1->rows; i++) {
+        for (int j = 0; j < m2->columns; j++) {
+            result->content[i][j] = 0;
+            for (int k = 0; k < m1->columns; k++) {
+                result->content[i][j] += m1->content[i][k] * m2->content[k][j];
+            }
+        }
+    }
+    print_matrix(result);
+    return 0;
 }
 
+// this should write the matrix to a file in the format described in the subject
 int matrix_dump_file(matrix_t *m, const char *output_file) {
-    /* implement the function here ... */
-    return -ENOSYS;
+    FILE *file = fopen(output_file, "w");
+    if (file == NULL) {
+        return -1;
+    }
+    for (int i = 0; i < m->rows; i++) {
+        for (int j = 0; j < m->columns; j++) {
+            fprintf(file, "%d ", m->content[i][j]);
+        }
+        fprintf(file, "\n");
+    }
+    fclose(file);
+    return 0;
+}
+
+int get_cols(const char *line) {
+    int count = 0;
+    int in_word = 0;
+    while (*line) {
+        if (isspace(*line)) {
+            in_word = 0;
+        } else if (!in_word) {
+            in_word = 1;
+            count++;
+        }
+        line++;
+    }
+    return count;
 }
 
 int matrix_allocate_and_init_file(matrix_t *m, const char *input_file) {
-    /* implement the function here ... */
-    return -ENOSYS;
+    FILE *file = fopen(input_file, "r");
+    if (file == NULL) {
+        return -1;
+    }
+
+    char buffer[1024];
+    int rows = 0;
+    int cols = 0;
+    
+    if (fgets(buffer, sizeof(buffer), file) != NULL) {
+        buffer[strcspn(buffer, "\n")] = '\0'; // Remove trailing newline character
+        cols = get_cols(buffer);
+        rows++;
+    }
+
+    while (fgets(buffer, sizeof(buffer), file) != NULL) {
+        rows++;
+    }
+
+    fclose(file);
+    
+    if (matrix_allocate(m, rows, cols) != 0) {
+        return -1;
+    }
+
+    // Reopen the file to read the matrix data
+    file = fopen(input_file, "r");
+    if (file == NULL) {
+        return -1;
+    }
+
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            fscanf(file, "%d", &m->content[i][j]);
+        }
+    }
+
+    fclose(file);
+    print_matrix(m);
+    return 0;
 }
